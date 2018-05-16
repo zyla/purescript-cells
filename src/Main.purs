@@ -17,9 +17,6 @@ foreign import foreach_ :: forall e a. Array a -> EffFn1 e a Unit -> Eff e Unit
 bigArray :: Array Int
 bigArray = Array.range 0 10000
 
-mapCell :: forall f. Functor f => f Int -> f Int
-mapCell = map (add 1) <<< map (add 1) <<< map (add 1)
-
 main :: forall e. Eff (console :: CONSOLE, st :: ST RealWorld | e) Unit
 main = do
   let
@@ -28,40 +25,65 @@ main = do
        . Functor f
       => (forall a. a -> Effect { cell :: f a, update :: a -> Effect Unit })
       -> (forall a. f a -> Effect a)
+      -> (f Int -> f Int)
       -> Effect Unit
-    benchUpdateRead new read = do
+    benchUpdateRead new read transform = do
       root <- new 0
-      let cell = mapCell root.cell
+      let cell = transform root.cell
       foreach_ bigArray $ mkEffFn1 \x -> do
         root.update x
         void (read cell)
 
-  runBench do
-
-    fnEff "Cell0 map update+read" $
-      benchUpdateRead Cell0.new Cell0.read
-
-    fnEff "Cell1 map update+read" $
-      benchUpdateRead Cell1.new Cell1.read
-
   let
-    benchUpdate
+    benchRead
       :: forall f
        . Functor f
       => (forall a. a -> Effect { cell :: f a, update :: a -> Effect Unit })
       -> (forall a. f a -> Effect a)
+      -> (f Int -> f Int)
       -> Effect Unit
-    benchUpdate new read = do
+    benchRead new read transform = do
       root <- new 0
-      let cell = mapCell root.cell
+      let cell = transform root.cell
       foreach_ bigArray $ mkEffFn1 \x -> do
-        root.update x
         void (read cell)
 
   runBench do
 
-    fnEff "Cell0 map update" $
-      benchUpdate Cell0.new Cell0.read
+    fnEff "Cell0 exponential update+read" $
+      benchUpdateRead Cell0.new Cell0.read graphExponential
 
-    fnEff "Cell1 map update" $
-      benchUpdate Cell1.new Cell1.read
+    fnEff "Cell1 exponential update+read" $
+      benchUpdateRead Cell1.new Cell1.read graphExponential
+
+  runBench do
+
+    fnEff "Cell0 exponential read" $
+      benchRead Cell0.new Cell0.read graphExponential
+
+    fnEff "Cell1 exponential read" $
+      benchRead Cell1.new Cell1.read graphExponential
+
+  runBench do
+
+    fnEff "Cell0 map update+read" $
+      benchUpdateRead Cell0.new Cell0.read graphMap
+
+    fnEff "Cell1 map update+read" $
+      benchUpdateRead Cell1.new Cell1.read graphMap
+
+  runBench do
+
+    fnEff "Cell0 map read" $
+      benchRead Cell0.new Cell0.read graphMap
+
+    fnEff "Cell1 map read" $
+      benchRead Cell1.new Cell1.read graphMap
+
+graphMap :: forall f. Functor f => f Int -> f Int
+graphMap = map (_ `div` 10) <<< map (_ `div` 10) <<< map (_ `div` 10)
+
+graphExponential :: forall f. Applicative f => f Int -> f Int
+graphExponential = apSelf <<< apSelf <<< apSelf
+  where
+    apSelf x = add <$> x <*> x
