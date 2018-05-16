@@ -80,10 +80,13 @@ main = do
     fnEff "Cell1 map read" $
       benchRead Cell1.new Cell1.read graphMap
 
+expensiveMath :: Int -> Int
+expensiveMath x = 100000 `div` x
+
 graphMap :: forall f. Functor f => f Int -> f Int
-graphMap = map (_ `div` 10) <<< map (_ `div` 10) <<< map (_ `div` 10)
+graphMap = map expensiveMath <<< map expensiveMath <<< map expensiveMath
 
 graphExponential :: forall f. Applicative f => f Int -> f Int
 graphExponential = apSelf <<< apSelf <<< apSelf
   where
-    apSelf x = add <$> x <*> x
+    apSelf x = (\a b -> expensiveMath (a + b)) <$> x <*> x
