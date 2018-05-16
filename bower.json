@@ -15,6 +15,7 @@
     "purescript-tuples": "^4.1.0"
   },
   "devDependencies": {
-    "purescript-psci-support": "^3.0.0"
+    "purescript-psci-support": "^3.0.0",
+    "purescript-benchmark": "^0.1.0"
   }
 }
