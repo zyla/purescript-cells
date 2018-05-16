@@ -1,7 +1,5 @@
 module Cell1
   ( Cell
-  , new
-  , read
   ) where
 
 import Prelude
@@ -12,6 +10,7 @@ import Data.Exists (Exists, mkExists, runExists)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect, Ref, newRef, readRef, writeRef)
+import IsCell (class IsCell)
 
 -----------------------------------------
 -- time stuff
@@ -57,16 +56,6 @@ instance applicativeCell :: Applicative Cell where
 
 -- TODO: figure out the Monad instance
 
-new :: forall a. a -> Effect { cell :: Cell a, update :: a -> Effect Unit }
-new x = do
-  ref <- newRef (Timed 0 x) -- TODO: is "0" correct?
-  pure
-    { cell: Root (readRef ref)
-    , update: \value -> do
-       time <- nextTime
-       writeRef ref (Timed time value)
-    }
-
 mkDerived :: forall a b. (Time -> Effect (Timed b)) -> (b -> a) -> Cell a
 mkDerived source fn = unsafePerformEff do
   cache <- newRef Nothing
@@ -105,7 +94,18 @@ readTimed now (Derived ex) =
 withExists :: forall f r. Exists f -> (forall a. f a -> r) -> r
 withExists f ex = runExists ex f
 
-read :: forall a. Cell a -> Effect a
-read cell = do
-  currentTime <- readRef nextTimeRef
-  map unTimed (readTimed currentTime cell)
+instance isCellCell :: IsCell Cell where
+  new x = do
+    ref <- newRef (Timed 0 x) -- TODO: is "0" correct?
+    pure
+      { cell: Root (readRef ref)
+      , update: \value -> do
+         time <- nextTime
+         writeRef ref (Timed time value)
+      }
+
+  read cell = do
+    currentTime <- readRef nextTimeRef
+    map unTimed (readTimed currentTime cell)
+
+  implName _ = "Cell1"
