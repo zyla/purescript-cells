@@ -1,12 +1,10 @@
-module Cell4
+module Cell5
   ( Cell
-
-  , unsafeNull
-  , unsafeIsNull
   ) where
 
 import Prelude
 
+import Cell4 (unsafeIsNull, unsafeNull)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1, mkEffFn2, runEffFn1, runEffFn2)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Data.Exists (Exists, mkExists, runExists)
@@ -39,9 +37,7 @@ nextTime = do
 
 -----------------------------------------
 
-data Cell a =
-    Root (Effect (Timed a))
-  | Derived (Exists (DerivedF a))
+newtype Cell a = Derived (Exists (DerivedF a))
 
 data DerivedF a b = DerivedF (Ref (Timed a)) (EffFn1 E Time (Timed b)) (b -> a)
 
@@ -59,7 +55,7 @@ instance applyCell :: Apply Cell where
       fn (Tuple f x) = f x
 
 instance applicativeCell :: Applicative Cell where
-  pure x = Root (pure (Timed 0 x))
+  pure x = mkDerived (mkEffFn1 \_now -> pure (Timed 0 x)) id
 
 -- TODO: figure out the Monad instance
 
@@ -71,7 +67,6 @@ mkDerived source fn = unsafePerformEff do
 readTimed :: forall a. EffFn2 E Time (Cell a) (Timed a)
 readTimed = mkEffFn2 \now cell ->
   case cell of
-    Root source -> source
     Derived ex -> do
       let DerivedF cache source fn = unsafeCoerce ex
       cached <- runEffFn1 readRef cache
@@ -101,9 +96,6 @@ readTimed = mkEffFn2 \now cell ->
                   runEffFn2 writeRef cache updated
                   pure updated
 
-foreign import unsafeNull :: forall a. a
-foreign import unsafeIsNull :: forall a. a -> Boolean
-
 withExists :: forall f r. Exists f -> (forall a. f a -> r) -> r
 withExists f ex = runExists ex f
 
@@ -120,7 +112,7 @@ instance isCellCell :: C.IsCell Cell where
     ref <- runEffFn1 newRef (Timed 0 x) -- TODO: is "0" correct?
     pure (toRoot ref)
 
-  readRoot root = Root (runEffFn1 readRef (fromRoot root))
+  readRoot root = mkDerived (mkEffFn1 \_time -> runEffFn1 readRef (fromRoot root)) id
 
   update = mkEffFn2 \root value -> do
     time <- nextTime
@@ -131,4 +123,4 @@ instance isCellCell :: C.IsCell Cell where
     Timed _ x <- runEffFn2 readTimed currentTime cell
     pure x
 
-  implName _ = "Cell4"
+  implName _ = "Cell5"

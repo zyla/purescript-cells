@@ -10,6 +10,7 @@ import Cell1 as Cell1
 import Cell2 as Cell2
 import Cell3 as Cell3
 import Cell4 as Cell4
+import Cell5 as Cell5
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1, runEffFn1, runEffFn2)
@@ -37,6 +38,7 @@ impls =
   , mkImpl (FProxy :: FProxy Cell2.Cell)
   , mkImpl (FProxy :: FProxy Cell3.Cell)
   , mkImpl (FProxy :: FProxy Cell4.Cell)
+  , mkImpl (FProxy :: FProxy Cell5.Cell)
   ]
 
 graphs :: Array Graph
