@@ -5,6 +5,7 @@ module Cell0
 
 import Prelude
 
+import Control.Monad.Eff.Uncurried (mkEffFn1)
 import Effect (Effect, newRef, readRef, writeRef)
 import IsCell (class IsCell)
 
@@ -20,9 +21,9 @@ instance isCellCell :: IsCell Cell where
     ref <- newRef x
     pure
       { cell: Cell (readRef ref)
-      , update: \value -> writeRef ref value
+      , update: mkEffFn1 (writeRef ref)
       }
 
-  read (Cell source) = source
+  read = mkEffFn1 \(Cell source) -> source
 
   implName _ = "Cell0"

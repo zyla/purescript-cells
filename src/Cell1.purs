@@ -4,6 +4,7 @@ module Cell1
 
 import Prelude
 
+import Control.Monad.Eff.Uncurried (mkEffFn1)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.ST (modifySTRef)
 import Data.Exists (Exists, mkExists, runExists)
@@ -99,12 +100,12 @@ instance isCellCell :: IsCell Cell where
     ref <- newRef (Timed 0 x) -- TODO: is "0" correct?
     pure
       { cell: Root (readRef ref)
-      , update: \value -> do
+      , update: mkEffFn1 \value -> do
          time <- nextTime
          writeRef ref (Timed time value)
       }
 
-  read cell = do
+  read = mkEffFn1 \cell -> do
     currentTime <- readRef nextTimeRef
     map unTimed (readTimed currentTime cell)
 

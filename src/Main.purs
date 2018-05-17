@@ -8,7 +8,7 @@ import Cell0 as Cell0
 import Cell1 as Cell1
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1)
+import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, runEffFn1)
 import Control.Monad.ST (ST)
 import Data.Array as Array
 import Data.Foldable (for_)
@@ -57,10 +57,13 @@ benchUpdateRead impl (Graph graph) =
     let name = implName proxy <> " " <> graph.name <> " update+read"
     fnEff name do
       root <- newP proxy 0
-      let cell = graph.construct root.cell
+      let
+        cell = graph.construct root.cell
+        readEff = runEffFn1 read cell
       foreach_ bigArray $ mkEffFn1 \x -> do
-        root.update x
-        void (read cell)
+        runEffFn1 root.update x
+        _ <- readEff
+        pure unit
 
 benchRead :: Test
 benchRead impl (Graph graph) =
@@ -68,9 +71,12 @@ benchRead impl (Graph graph) =
     let name = implName proxy <> " " <> graph.name <> " read"
     fnEff name do
       root <- newP proxy 0
-      let cell = graph.construct root.cell
-      foreach_ bigArray $ mkEffFn1 \x -> do
-        void (read cell)
+      let
+        cell = graph.construct root.cell
+        readEff = runEffFn1 read cell
+      foreach_ bigArray $ mkEffFn1 \_ -> do
+        _ <- readEff
+        pure unit
 
 main :: Eff (console :: CONSOLE, st :: ST RealWorld) Unit
 main = do

@@ -1,5 +1,6 @@
 module Effect
   ( Effect
+  , E
   , RealWorld
   , Ref
   , newRef
@@ -14,7 +15,9 @@ import Control.Monad.ST (ST, STRef, newSTRef, readSTRef, writeSTRef)
 
 foreign import data RealWorld :: Type
 
-type Effect = Eff (st :: ST RealWorld)
+type E = (st :: ST RealWorld)
+
+type Effect = Eff E
 
 type Ref = STRef RealWorld
 
