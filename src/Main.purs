@@ -8,12 +8,12 @@ import Cell0 as Cell0
 import Cell1 as Cell1
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, runEffFn1)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1, runEffFn1, runEffFn2)
 import Control.Monad.ST (ST)
 import Data.Array as Array
 import Data.Foldable (for_)
-import Effect (RealWorld)
-import IsCell (class IsCell, FProxy(FProxy), implName, newP, read)
+import Effect (RealWorld, E)
+import IsCell (class IsCell, FProxy(FProxy), Root, implName, newP, read, readRoot, update)
 
 foreign import foreach_ :: forall e a. Array a -> EffFn1 e a Unit -> Eff e Unit
 
@@ -43,7 +43,8 @@ graphs =
   , graphExponential 5
   ]
 
-type Test = SomeCellImpl -> Graph -> SuiteT RealWorld (st :: ST RealWorld, console :: CONSOLE) Unit
+type Suite = SuiteT RealWorld (st :: ST RealWorld, console :: CONSOLE)
+type Test = SomeCellImpl -> Graph -> Suite Unit
 
 tests :: Array Test
 tests =
@@ -53,17 +54,23 @@ tests =
 
 benchUpdateRead :: Test
 benchUpdateRead impl (Graph graph) =
-  withImpl impl \proxy -> do
-    let name = implName proxy <> " " <> graph.name <> " update+read"
-    fnEff name do
-      root <- newP proxy 0
-      let
-        cell = graph.construct root.cell
-        readEff = runEffFn1 read cell
-      foreach_ bigArray $ mkEffFn1 \x -> do
-        runEffFn1 root.update x
-        _ <- readEff
-        pure unit
+  withImpl impl go
+  
+  where
+    go :: forall f. IsCell f => FProxy f -> Suite Unit
+    go (proxy :: FProxy f) = do
+      let name = implName proxy <> " " <> graph.name <> " update+read"
+      fnEff name do
+        root <- newP proxy 0
+        let
+          cell = graph.construct (readRoot root)
+          readEff = runEffFn1 read cell
+          update' :: EffFn2 E (Root f Int) Int Unit
+          update' = update
+        foreach_ bigArray $ mkEffFn1 \x -> do
+          runEffFn2 update' root x
+          _ <- readEff
+          pure unit
 
 benchRead :: Test
 benchRead impl (Graph graph) =
@@ -72,7 +79,7 @@ benchRead impl (Graph graph) =
     fnEff name do
       root <- newP proxy 0
       let
-        cell = graph.construct root.cell
+        cell = graph.construct (readRoot root)
         readEff = runEffFn1 read cell
       foreach_ bigArray $ mkEffFn1 \_ -> do
         _ <- readEff

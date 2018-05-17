@@ -4,14 +4,15 @@ module Cell1
 
 import Prelude
 
-import Control.Monad.Eff.Uncurried (mkEffFn1)
+import Control.Monad.Eff.Uncurried (mkEffFn1, mkEffFn2)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.ST (modifySTRef)
 import Data.Exists (Exists, mkExists, runExists)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect, Ref, newRef, readRef, writeRef)
-import IsCell (class IsCell)
+import IsCell as C
+import Unsafe.Coerce (unsafeCoerce)
 
 -----------------------------------------
 -- time stuff
@@ -95,15 +96,24 @@ readTimed now (Derived ex) =
 withExists :: forall f r. Exists f -> (forall a. f a -> r) -> r
 withExists f ex = runExists ex f
 
-instance isCellCell :: IsCell Cell where
+type Root a = Ref (Timed a)
+
+toRoot :: forall a. Root a -> C.Root Cell a
+toRoot = unsafeCoerce
+
+fromRoot :: forall a. C.Root Cell a -> Root a
+fromRoot = unsafeCoerce
+
+instance isCellCell :: C.IsCell Cell where
   new x = do
     ref <- newRef (Timed 0 x) -- TODO: is "0" correct?
-    pure
-      { cell: Root (readRef ref)
-      , update: mkEffFn1 \value -> do
-         time <- nextTime
-         writeRef ref (Timed time value)
-      }
+    pure (toRoot ref)
+
+  readRoot root = Root (readRef (fromRoot root))
+
+  update = mkEffFn2 \root value -> do
+    time <- nextTime
+    writeRef (fromRoot root) (Timed time value)
 
   read = mkEffFn1 \cell -> do
     currentTime <- readRef nextTimeRef
