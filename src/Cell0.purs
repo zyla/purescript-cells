@@ -6,7 +6,7 @@ module Cell0
 import Prelude
 
 import Control.Monad.Eff.Uncurried (mkEffFn1, mkEffFn2)
-import Effect (Effect, Ref, newRef, readRef, writeRef)
+import Effect (Effect, Ref, newRefSlow, readRefSlow, writeRefSlow)
 import IsCell as C
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -27,13 +27,13 @@ fromRoot = unsafeCoerce
 instance isCellCell :: C.IsCell Cell where
 
   new x = do
-    ref <- newRef x
+    ref <- newRefSlow x
     pure (toRoot ref)
 
-  readRoot root = Cell (readRef (fromRoot root))
+  readRoot root = Cell (readRefSlow (fromRoot root))
 
   update = mkEffFn2 \root value -> do
-    writeRef (fromRoot root) value
+    writeRefSlow (fromRoot root) value
 
   read = mkEffFn1 \(Cell source) -> source
 

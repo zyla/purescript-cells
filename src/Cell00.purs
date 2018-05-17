@@ -5,8 +5,8 @@ module Cell00
 
 import Prelude
 
-import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1, mkEffFn2, runEffFn1, runEffFn2)
-import Effect (E, Effect, Ref, newRef)
+import Control.Monad.Eff.Uncurried (mkEffFn1, mkEffFn2, runEffFn1, runEffFn2)
+import Effect (Effect, Ref, newRefSlow, readRef, writeRef)
 import IsCell as C
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -27,7 +27,7 @@ fromRoot = unsafeCoerce
 instance isCellCell :: C.IsCell Cell where
 
   new x = do
-    ref <- newRef x
+    ref <- newRefSlow x
     pure (toRoot ref)
 
   readRoot root = Cell (runEffFn1 readRef (fromRoot root))
@@ -38,8 +38,3 @@ instance isCellCell :: C.IsCell Cell where
   read = mkEffFn1 \(Cell source) -> source
 
   implName _ = "Cell00"
-
-readRef :: forall a. EffFn1 E (Ref a) a
-readRef = mkEffFn1 \ref -> pure (unsafeCoerce ref).value
-
-foreign import writeRef :: forall a. EffFn2 E (Ref a) a Unit

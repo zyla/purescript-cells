@@ -1,0 +1,5 @@
+#!/bin/bash -e
+
+rm -rf output
+purs-0.12 compile 'src/**/*.purs' 'bower_components/purescript-*/src/**/*.purs'
+node -e "require('./output/Main').main();"

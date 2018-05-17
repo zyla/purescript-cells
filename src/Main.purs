@@ -7,6 +7,9 @@ import Benchmark.Suite.Monad (SuiteT)
 import Cell0 as Cell0
 import Cell00 as Cell00
 import Cell1 as Cell1
+import Cell2 as Cell2
+import Cell3 as Cell3
+import Cell4 as Cell4
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1, runEffFn1, runEffFn2)
@@ -29,13 +32,17 @@ mkImpl proxy = SomeCellImpl (\fn -> fn proxy)
 impls :: Array SomeCellImpl
 impls =
   [ mkImpl (FProxy :: FProxy Cell0.Cell)
-  , mkImpl (FProxy :: FProxy Cell00.Cell)
   , mkImpl (FProxy :: FProxy Cell1.Cell)
+  , mkImpl (FProxy :: FProxy Cell00.Cell)
+  , mkImpl (FProxy :: FProxy Cell2.Cell)
+  , mkImpl (FProxy :: FProxy Cell3.Cell)
+  , mkImpl (FProxy :: FProxy Cell4.Cell)
   ]
 
 graphs :: Array Graph
 graphs =
-  [ graphMap 1
+  [ graphFunkia
+  , graphMap 0
   , graphMap 3
   , graphMap 10
   , graphExponential 1
@@ -55,9 +62,7 @@ tests =
   ]
 
 benchUpdateRead :: Test
-benchUpdateRead impl (Graph graph) =
-  withImpl impl go
-  
+benchUpdateRead impl (Graph graph) = withImpl impl go
   where
     go :: forall f. IsCell f => FProxy f -> Suite Unit
     go (proxy :: FProxy f) = do
@@ -66,26 +71,30 @@ benchUpdateRead impl (Graph graph) =
         root <- newP proxy 0
         let
           cell = graph.construct (readRoot root)
-          readEff = runEffFn1 read cell
+          read' :: EffFn1 E (f Int) Int
+          read' = read
           update' :: EffFn2 E (Root f Int) Int Unit
           update' = update
         foreach_ bigArray $ mkEffFn1 \x -> do
           runEffFn2 update' root x
-          _ <- readEff
+          _ <- runEffFn1 read' cell
           pure unit
 
 benchRead :: Test
-benchRead impl (Graph graph) =
-  withImpl impl \proxy -> do
-    let name = implName proxy <> " " <> graph.name <> " read"
-    fnEff name do
-      root <- newP proxy 0
-      let
-        cell = graph.construct (readRoot root)
-        readEff = runEffFn1 read cell
-      foreach_ bigArray $ mkEffFn1 \_ -> do
-        _ <- readEff
-        pure unit
+benchRead impl (Graph graph) = withImpl impl go
+  where
+    go :: forall f. IsCell f => FProxy f -> Suite Unit
+    go (proxy :: FProxy f) = do
+      let name = implName proxy <> " " <> graph.name <> " read"
+      fnEff name do
+        root <- newP proxy 0
+        let
+          cell = graph.construct (readRoot root)
+          read' :: EffFn1 E (f Int) Int
+          read' = read
+        foreach_ bigArray $ mkEffFn1 \_ -> do
+          _ <- runEffFn1 read' cell
+          pure unit
 
 main :: Eff (console :: CONSOLE, st :: ST RealWorld) Unit
 main = do
@@ -93,13 +102,20 @@ main = do
   for_ graphs \graph ->
     for_ tests \test ->
       runBench do
-        for_ impls \impl ->
+        for_ impls \impl -> do
           test impl graph
 
 newtype Graph = Graph
   { construct :: forall f. Applicative f => f Int -> f Int
   , name :: String
   }
+
+graphFunkia :: Graph
+graphFunkia =
+  Graph
+    { construct: map (_ - 3) <<< map (_ * 2) <<< map (_ + 1)
+    , name: "funkia map-map-map"
+    }
 
 graphMap :: Int -> Graph
 graphMap n =

@@ -3,6 +3,11 @@ module Effect
   , E
   , RealWorld
   , Ref
+
+  , newRefSlow
+  , readRefSlow
+  , writeRefSlow
+
   , newRef
   , readRef
   , writeRef
@@ -11,7 +16,9 @@ module Effect
 import Prelude
 
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, mkEffFn1)
 import Control.Monad.ST (ST, STRef, newSTRef, readSTRef, writeSTRef)
+import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data RealWorld :: Type
 
@@ -21,11 +28,19 @@ type Effect = Eff E
 
 type Ref = STRef RealWorld
 
-newRef :: forall a. a -> Effect (Ref a)
-newRef = newSTRef
+newRefSlow :: forall a. a -> Effect (Ref a)
+newRefSlow = newSTRef
 
-readRef :: forall a. Ref a -> Effect a
-readRef = readSTRef
+readRefSlow :: forall a. Ref a -> Effect a
+readRefSlow = readSTRef
 
-writeRef :: forall a. Ref a -> a -> Effect Unit
-writeRef ref value = void (writeSTRef ref value)
+writeRefSlow :: forall a. Ref a -> a -> Effect Unit
+writeRefSlow ref value = void (writeSTRef ref value)
+
+newRef :: forall a. EffFn1 E a (Ref a)
+newRef = mkEffFn1 \x -> pure (unsafeCoerce { value: x })
+
+readRef :: forall a. EffFn1 E (Ref a) a
+readRef = mkEffFn1 \ref -> pure (unsafeCoerce ref).value
+
+foreign import writeRef :: forall a. EffFn2 E (Ref a) a Unit

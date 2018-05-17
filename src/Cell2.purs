@@ -1,16 +1,16 @@
-module Cell1
+module Cell2
   ( Cell
   ) where
 
 import Prelude
 
-import Control.Monad.Eff.Uncurried (mkEffFn1, mkEffFn2)
+import Control.Monad.Eff.Uncurried (mkEffFn1, mkEffFn2, runEffFn1, runEffFn2)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.ST (modifySTRef)
 import Data.Exists (Exists, mkExists, runExists)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Effect (Effect, Ref, newRefSlow, readRefSlow, writeRefSlow)
+import Effect (Effect, Ref, newRef, readRef, writeRef)
 import IsCell as C
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -27,7 +27,7 @@ unTimed :: forall a. Timed a -> a
 unTimed (Timed _ a) = a
 
 nextTimeRef :: Ref Time
-nextTimeRef = unsafePerformEff (newRefSlow 1)
+nextTimeRef = unsafePerformEff (runEffFn1 newRef 1)
 
 nextTime :: Effect Time
 nextTime = modifySTRef nextTimeRef (add 1)
@@ -60,20 +60,20 @@ instance applicativeCell :: Applicative Cell where
 
 mkDerived :: forall a b. (Time -> Effect (Timed b)) -> (b -> a) -> Cell a
 mkDerived source fn = unsafePerformEff do
-  cache <- newRefSlow Nothing
+  cache <- runEffFn1 newRef Nothing
   pure (Derived (mkExists (DerivedF cache source fn)))
 
 readTimed :: forall a. Time -> Cell a -> Effect (Timed a)
 readTimed _   (Root source) = source
 readTimed now (Derived ex) =
   withExists ex \(DerivedF cache source fn) -> do
-    m_cached <- readRefSlow cache
+    m_cached <- runEffFn1 readRef cache
     case m_cached of
       Nothing -> do
         -- Never updated. Recompute.
         Timed srcTime value <- source now
         let updated = Timed srcTime (fn value)
-        writeRefSlow cache (Just updated)
+        runEffFn2 writeRef cache (Just updated)
         pure updated
 
       Just cached@(Timed cacheTime _) ->
@@ -90,7 +90,7 @@ readTimed now (Derived ex) =
               else do
                 -- Source was updated later than our cache. Recompute.
                 let updated = Timed srcTime (fn value)
-                writeRefSlow cache (Just updated)
+                runEffFn2 writeRef cache (Just updated)
                 pure updated
 
 withExists :: forall f r. Exists f -> (forall a. f a -> r) -> r
@@ -106,17 +106,17 @@ fromRoot = unsafeCoerce
 
 instance isCellCell :: C.IsCell Cell where
   new x = do
-    ref <- newRefSlow (Timed 0 x) -- TODO: is "0" correct?
+    ref <- runEffFn1 newRef (Timed 0 x) -- TODO: is "0" correct?
     pure (toRoot ref)
 
-  readRoot root = Root (readRefSlow (fromRoot root))
+  readRoot root = Root (runEffFn1 readRef (fromRoot root))
 
   update = mkEffFn2 \root value -> do
     time <- nextTime
-    writeRefSlow (fromRoot root) (Timed time value)
+    runEffFn2 writeRef (fromRoot root) (Timed time value)
 
   read = mkEffFn1 \cell -> do
-    currentTime <- readRefSlow nextTimeRef
+    currentTime <- runEffFn1 readRef nextTimeRef
     map unTimed (readTimed currentTime cell)
 
-  implName _ = "Cell1"
+  implName _ = "Cell2"
