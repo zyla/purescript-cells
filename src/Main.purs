@@ -5,6 +5,7 @@ import Prelude
 import Benchmark (fnEff, runBench)
 import Benchmark.Suite.Monad (SuiteT)
 import Cell0 as Cell0
+import Cell00 as Cell00
 import Cell1 as Cell1
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
@@ -28,6 +29,7 @@ mkImpl proxy = SomeCellImpl (\fn -> fn proxy)
 impls :: Array SomeCellImpl
 impls =
   [ mkImpl (FProxy :: FProxy Cell0.Cell)
+  , mkImpl (FProxy :: FProxy Cell00.Cell)
   , mkImpl (FProxy :: FProxy Cell1.Cell)
   ]
 
